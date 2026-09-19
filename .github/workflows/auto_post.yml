@@ -2,7 +2,7 @@ name: Automated Global News Publisher
 
 on:
   schedule:
-    - cron: '0 */3 * * *' # Har 3 ghante baad automatically run hoga (Din mein 8 baar, yani 80 high-quality articles daily!)
+    - cron: '0 * * * *' # Har 1 ghante baad automatically run hoga (Din mein 24 dafa!)
   workflow_dispatch: # Manual testing ke liye button
 
 jobs:
