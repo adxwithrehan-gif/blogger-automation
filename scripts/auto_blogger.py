@@ -11,9 +11,12 @@ CLIENT_SECRET = os.environ.get("BLOGGER_CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("BLOGGER_REFRESH_TOKEN")
 BLOG_ID = os.environ.get("BLOGGER_BLOG_ID")
 
+print("--- Checking Environment Secrets ---")
 if not all([GEMINI_API_KEY, CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN, BLOG_ID]):
     print("ERROR: One or more environment secrets are missing!")
     exit(1)
+else:
+    print("All secrets found successfully.")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -29,15 +32,16 @@ def get_access_token():
     response = requests.post(url, data=data)
     res_json = response.json()
     if "access_token" in res_json:
+        print("Successfully generated fresh Blogger Access Token.")
         return res_json.get("access_token")
     else:
         print(f"Failed to refresh access token: {res_json}")
         return None
 
 def fetch_global_news():
-    """Browser User-Agent ke sath reliable global news feeds uthata hai"""
+    """Reliable global news RSS feeds se trending headlines uthata hai"""
     rss_urls = [
-        "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en",
+        "http://feeds.bbci.co.uk/news/world/rss.xml",
         "https://rss.cnn.com/rss/edition_world.rss"
     ]
     
@@ -48,8 +52,8 @@ def fetch_global_news():
     entries = []
     for url in rss_urls:
         try:
-            print(f"Fetching from: {url}")
-            response = requests.get(url, headers=headers, timeout=10)
+            print(f"Fetching from RSS: {url}")
+            response = requests.get(url, headers=headers, timeout=15)
             if response.status_code == 200:
                 feed = feedparser.parse(response.content)
                 if feed.entries:
@@ -61,14 +65,15 @@ def fetch_global_news():
             print(f"Error fetching {url}: {e}")
             
     print(f"Total news items collected: {len(entries)}")
-    return entries[:10]
+    return entries[:5] # Pehle test ke liye top 5 items process karenge
 
 def generate_high_quality_article(title):
     """Gemini API se ek professional aur detailed SEO optimized article likhwata hai"""
     try:
+        print(f"Generating article via Gemini for: {title}")
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"""
-        Write a comprehensive, highly engaging, professional, and high-quality news article based on this headline: '{title}'. 
+        Write a comprehensive, highly engaging, professional, and high-quality SEO-optimized news article based on this headline: '{title}'. 
         Ensure the article has:
         1. A catchy introduction paragraph.
         2. Detailed body paragraphs with insightful context using <h2> and <p> tags.
@@ -76,7 +81,9 @@ def generate_high_quality_article(title):
         Format the entire output in clean HTML code. Do not include markdown code block ticks like ```html in the output, just raw HTML.
         """
         response = model.generate_content(prompt)
-        return response.text.replace("```html", "").replace("```", "")
+        article_text = response.text.replace("```html", "").replace("```", "")
+        print("Article generated successfully.")
+        return article_text
     except Exception as e:
         print(f"Gemini API Error for title '{title}': {e}")
         return None
@@ -85,6 +92,7 @@ def publish_to_blogger(title, content):
     """Blogger API v3 ke zariye post publish karta hai"""
     access_token = get_access_token()
     if not access_token:
+        print("Publishing skipped because access token is missing.")
         return False
 
     url = f"[https://www.googleapis.com/blogger/v3/blogs/](https://www.googleapis.com/blogger/v3/blogs/){BLOG_ID}/posts/"
@@ -95,15 +103,16 @@ def publish_to_blogger(title, content):
     payload = {
         "title": title,
         "content": content,
-        "labels": ["World News", "Top Stories", "Global Trends"]
+        "labels": ["World News", "Top Stories", "Global Trends", "MSN News"]
     }
 
+    print(f"Sending post to Blogger: {title}")
     response = requests.post(url, headers=headers, json=payload)
     if response.status_code == 200:
-        print(f"Successfully Published: {title}")
+        print(f"Successfully Published on Blogger: {title}")
         return True
     else:
-        print(f"Failed to publish '{title}': {response.text}")
+        print(f"Failed to publish '{title}'. Status: {response.status_code}, Response: {response.text}")
         return False
 
 if __name__ == "__main__":
@@ -112,16 +121,16 @@ if __name__ == "__main__":
     
     if not entries:
         print("No news entries found to process.")
-    
-    for entry in entries:
-        title = entry.title
-        print(f"Processing headline: {title}")
-        
-        article_html = generate_high_quality_article(title)
-        if article_html:
-            success = publish_to_blogger(title, article_html)
-            if success:
-                print("Waiting 5 seconds before next post...")
-                time.sleep(5)
-        else:
-            print("Skipping due to generation failure.")
+    else:
+        for entry in entries:
+            title = entry.title
+            print(f"\nProcessing headline: {title}")
+            
+            article_html = generate_high_quality_article(title)
+            if article_html:
+                success = publish_to_blogger(title, article_html)
+                if success:
+                    print("Waiting 5 seconds before next post...")
+                    time.sleep(5)
+            else:
+                print("Skipping due to generation failure.")
