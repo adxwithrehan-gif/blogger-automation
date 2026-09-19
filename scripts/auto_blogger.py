@@ -6,17 +6,16 @@ import google.generativeai as genai
 
 # Environment Variables se Secrets uthayega
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 CLIENT_ID = os.environ.get("BLOGGER_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("BLOGGER_CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("BLOGGER_REFRESH_TOKEN")
 BLOG_ID = os.environ.get("BLOGGER_BLOG_ID")
 
 print("--- Checking Environment Secrets ---")
-if not all([GEMINI_API_KEY, CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN, BLOG_ID]):
-    print("ERROR: One or more environment secrets are missing!")
+if not all([GEMINI_API_KEY, BLOG_ID, CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN]):
+    print("ERROR: Essential Blogger or Gemini secrets are missing!")
     exit(1)
-else:
-    print("All secrets found successfully.")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -39,33 +38,55 @@ def get_access_token():
         return None
 
 def fetch_global_news():
-    """Reliable global news RSS feeds se trending headlines uthata hai"""
+    """News API aur RSS Feeds dono se top trending headlines uthata hai"""
+    headlines = []
+    
+    # 1. News API se fetch karein (Agar API Key mojood ho)
+    if NEWS_API_KEY:
+        try:
+            print("Fetching top headlines from News API...")
+            news_api_url = f"https://newsapi.org/v2/top-headlines?country=us&apiKey={NEWS_API_KEY}"
+            response = requests.get(news_api_url, timeout=15)
+            if response.status_code == 200:
+                articles = response.json().get("articles", [])
+                print(f"Found {len(articles)} articles from News API.")
+                for art in articles:
+                    if art.get("title") and art.get("title") != "[Removed]":
+                        headlines.append(art.get("title"))
+        except Exception as e:
+            print(f"Error fetching from News API: {e}")
+
+    # 2. Backup ke taur par RSS Feeds se bhi fetch karein
     rss_urls = [
-        "http://feeds.bbci.co.uk/news/world/rss.xml",
-        "https://rss.cnn.com/rss/edition_world.rss"
+        "https://rss.cnn.com/rss/edition_world.rss",
+        "http://feeds.bbci.co.uk/news/world/rss.xml"
     ]
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"}
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
-    entries = []
     for url in rss_urls:
         try:
             print(f"Fetching from RSS: {url}")
-            response = requests.get(url, headers=headers, timeout=15)
-            if response.status_code == 200:
-                feed = feedparser.parse(response.content)
-                if feed.entries:
-                    print(f"Found {len(feed.entries)} items from {url}")
-                    entries.extend(feed.entries[:5])
-            else:
-                print(f"Failed to fetch {url}, status code: {response.status_code}")
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                feed = feedparser.parse(resp.text)
+                for entry in feed.entries[:5]:
+                    if hasattr(entry, 'title'):
+                        headlines.append(entry.title)
         except Exception as e:
-            print(f"Error fetching {url}: {e}")
-            
-    print(f"Total news items collected: {len(entries)}")
-    return entries[:5] # Pehle test ke liye top 5 items process karenge
+            print(f"Error fetching RSS {url}: {e}")
+
+    # Agar phir bhi kuch na mile toh fallback topics
+    if not headlines:
+        print("Using fallback global trending topics.")
+        headlines = [
+            "Global Markets React to Latest Economic Policy Changes in 2026",
+            "Major Breakthrough in Artificial Intelligence Technology Announced Today"
+        ]
+        
+    # Unique headlines rakhein aur top 5 select karein per run
+    unique_headlines = list(dict.fromkeys(headlines))
+    print(f"Total unique headlines to process: {len(unique_headlines)}")
+    return unique_headlines[:5]
 
 def generate_high_quality_article(title):
     """Gemini API se ek professional aur detailed SEO optimized article likhwata hai"""
@@ -103,7 +124,7 @@ def publish_to_blogger(title, content):
     payload = {
         "title": title,
         "content": content,
-        "labels": ["World News", "Top Stories", "Global Trends", "MSN News"]
+        "labels": ["World News", "Top Stories", "Global Trends", "MSN News", "Google News"]
     }
 
     print(f"Sending post to Blogger: {title}")
@@ -116,16 +137,14 @@ def publish_to_blogger(title, content):
         return False
 
 if __name__ == "__main__":
-    print("Starting Global News Automation Script...")
-    entries = fetch_global_news()
+    print("Starting Global News Automation Script with News API...")
+    headlines = fetch_global_news()
     
-    if not entries:
-        print("No news entries found to process.")
+    if not headlines:
+        print("No headlines found to process.")
     else:
-        for entry in entries:
-            title = entry.title
+        for title in headlines:
             print(f"\nProcessing headline: {title}")
-            
             article_html = generate_high_quality_article(title)
             if article_html:
                 success = publish_to_blogger(title, article_html)
