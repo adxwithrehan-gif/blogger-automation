@@ -35,25 +35,33 @@ def get_access_token():
         return None
 
 def fetch_global_news():
-    """Multiple global news sources se trending headlines uthata hai"""
+    """Browser User-Agent ke sath reliable global news feeds uthata hai"""
     rss_urls = [
         "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en",
-        "http://feeds.bbci.co.uk/news/world/rss.xml",
         "https://rss.cnn.com/rss/edition_world.rss"
     ]
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     
     entries = []
     for url in rss_urls:
         try:
             print(f"Fetching from: {url}")
-            feed = feedparser.parse(url)
-            if feed.entries:
-                entries.extend(feed.entries[:5]) # Har source se top 5
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                feed = feedparser.parse(response.content)
+                if feed.entries:
+                    print(f"Found {len(feed.entries)} items from {url}")
+                    entries.extend(feed.entries[:5])
+            else:
+                print(f"Failed to fetch {url}, status code: {response.status_code}")
         except Exception as e:
             print(f"Error fetching {url}: {e}")
             
     print(f"Total news items collected: {len(entries)}")
-    return entries[:10] # Total top 10 items process karega
+    return entries[:10]
 
 def generate_high_quality_article(title):
     """Gemini API se ek professional aur detailed SEO optimized article likhwata hai"""
@@ -65,7 +73,7 @@ def generate_high_quality_article(title):
         1. A catchy introduction paragraph.
         2. Detailed body paragraphs with insightful context using <h2> and <p> tags.
         3. A brief conclusion summary.
-        Format the entire output in clean HTML code. Do not include markdown code block ticks like ```html in the output, just raw HTML or clean text.
+        Format the entire output in clean HTML code. Do not include markdown code block ticks like ```html in the output, just raw HTML.
         """
         response = model.generate_content(prompt)
         return response.text.replace("```html", "").replace("```", "")
