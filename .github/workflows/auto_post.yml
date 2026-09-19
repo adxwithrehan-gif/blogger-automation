@@ -2,8 +2,8 @@ name: Automated Global News Publisher
 
 on:
   schedule:
-    - cron: '0 * * * *' # Har 1 ghante baad automatically run hoga (Din mein 24 dafa!)
-  workflow_dispatch: # Manual testing ke liye button
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,7 +19,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install requests google-generativeai feedparser
+          pip install requests feedparser google-genai
 
       - name: Run News Publisher Script
         env:
