@@ -1,48 +1,34 @@
 import os
-import pickle
 import time
 from datetime import datetime
-from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import google.generativeai as genai
 
-# --- CONFIGURATIONS (Fetched from GitHub Secrets securely) ---
+# --- CONFIGURATIONS (GitHub Secrets se values uthana) ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-BLOG_ID = os.environ.get("BLOG_ID")
+BLOG_ID = os.environ.get("BLOGGER_BLOG_ID")
+CLIENT_ID = os.environ.get("BLOGGER_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("BLOGGER_CLIENT_SECRET")
+REFRESH_TOKEN = os.environ.get("BLOGGER_REFRESH_TOKEN")
 
 # Configure Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# Blogger API Scope
-SCOPES = ['https://www.googleapis.com/auth/blogger']
-
 def get_blogger_service():
     """
-    GitHub Actions ke liye token handling environment variables ya pickled credentials se.
+    Refresh token aur client credentials se direct Google API credentials banana
     """
-    creds = None
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            # GitHub Actions ke liye JSON credentials env se load kiye ja sakte hain
-            token_json = os.environ.get("TOKEN_PICKLE_BASE64")
-            if token_json:
-                import base64
-                with open('token.pickle', 'wb') as token:
-                    token.write(base64.b64decode(token_json))
-                with open('token.pickle', 'rb') as token:
-                    creds = pickle.load(token)
-    
+    creds = Credentials(
+        None,
+        refresh_token=REFRESH_TOKEN,
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        token_uri="https://oauth2.googleapis.com/token"
+    )
     return build('blogger', 'v3', credentials=creds)
 
-# Categories focused on daily trending news / hot topics
 categories = ["World News", "Technology Trends", "Crypto Updates", "Viral Stories"]
 
 service = get_blogger_service()
@@ -108,7 +94,7 @@ while published_count < TOTAL_ARTICLES_TARGET:
                 published_count += 1
                 print(f"[{published_count}/{TOTAL_ARTICLES_TARGET}] ✅ Published [{category}]: {title}")
                 
-                # 1 se 2 minute ka gap (120 seconds) har post ke darmiyan
+                # 1 se 2 minute ka gap (90 seconds) har post ke darmiyan
                 print("⏳ Waiting for 90 seconds before the next post...")
                 time.sleep(90)
                 success = True
