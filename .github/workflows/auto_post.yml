@@ -2,6 +2,7 @@ name: Auto Blogger CI
 
 on:
   schedule:
+    # Har 6 ghante baad chalne ka schedule (Rat 1:00, Subah 7:00, Dopahar 1:00, Sham 7:00)
     - cron: '0 */6 * * *'
   workflow_dispatch:
 
