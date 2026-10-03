@@ -12,7 +12,7 @@ CLIENT_ID = os.environ.get("BLOGGER_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("BLOGGER_CLIENT_SECRET")
 REFRESH_TOKEN = os.environ.get("BLOGGER_REFRESH_TOKEN")
 
-# Configure Gemini
+# Configure Gemini Model
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
@@ -29,14 +29,15 @@ def get_blogger_service():
     )
     return build('blogger', 'v3', credentials=creds)
 
-categories = ["World News", "Technology Trends", "Crypto Updates", "Viral Stories"]
+# Aapki makhsoos categories (Sports, Law, Government)
+categories = ["Sports", "Law", "Government"]
 
 service = get_blogger_service()
 
 TOTAL_ARTICLES_TARGET = 10
 published_count = 0
 
-print(f"🚀 Starting Automated Daily Trending News Posting: Target is {TOTAL_ARTICLES_TARGET} articles...")
+print(f"🚀 Starting Daily Trending News Posting: Target is {TOTAL_ARTICLES_TARGET} articles...")
 
 while published_count < TOTAL_ARTICLES_TARGET:
     for category in categories:
@@ -94,7 +95,7 @@ while published_count < TOTAL_ARTICLES_TARGET:
                 published_count += 1
                 print(f"[{published_count}/{TOTAL_ARTICLES_TARGET}] ✅ Published [{category}]: {title}")
                 
-                # 1 se 2 minute ka gap (90 seconds) har post ke darmiyan
+                # 90 seconds (1.5 minutes) ka gap har post ke darmiyan
                 print("⏳ Waiting for 90 seconds before the next post...")
                 time.sleep(90)
                 success = True
